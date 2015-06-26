@@ -98,7 +98,10 @@ class Observable(object):
             if timeleft <= 0:
                 break
         self._clean_threads()
-        return len(self._threads) > 0
+        return len(self._threads) == 0
+
+    def join_all(self, timeout=None):
+        return self.join(timeout)
 
     def get_observers(self):
         """
@@ -148,9 +151,18 @@ class DerivedObservable(Observable, Observer):
     def __init__(self, source, propagate_errors=False, propagate_complete=False):
         if not isinstance(source, Observable):
             raise TypeError('Source must be an Observable')
+        self._source = source
         source.subscribe(self)
         self.propagate_errors = propagate_errors
         self.propagate_complete = propagate_complete
+        Observable.__init__(self)
+
+    def join_all(self, timeout=None):
+        tick = time.time()
+        if not self._source.join_all(timeout):
+            return False
+        timeleft = None if (timeout is None) else (timeout - (time.time() - tick))
+        return self.join(timeleft)
 
     def with_propagate_errors(self, do_propagate):
         self.propagate_errors = do_propagate
@@ -195,8 +207,20 @@ class MergedObservable(DerivedObservable):
             if not isinstance(s, Observable):
                 raise TypeError('Can only merge Observables')
         super(MergedObservable, self).__init__(source, **kwargs)
+        self._sources = sources
         for s in sources:
             s.subscribe(self)
+
+    def join_all(self, timeout=None):
+        tick = time.time()
+        for source in self._sources:
+            timeleft = None if (timeout is None) else (timeout - (time.time() - tick))
+            if timeleft <= 0:
+                break
+            if not source.join_all(timeleft):
+                return False
+        return super(MergedObservable, self).join_all(timeout)
+
 
 
 class Subject(Observable, Observer):
