@@ -117,7 +117,7 @@ def test_propagate_complete():
     ok_(uut.join_all(1))
     ok_(observer.is_complete())
 
-def test_propagate_erros_and_complete():
+def test_propagate_errors_and_complete():
 
     subj = Subject()
     uut = DerivedObservable(subj, True, True)
@@ -140,5 +140,19 @@ def test_propagate_erros_and_complete():
     ok_(uut.join_all(1))
     ok_(observer.is_complete())
 
+def test_filter():
+
+    subj = Subject()
+    uut = subj.filter(lambda x : x % 2 == 0)
+    observer = uut.subscribe(CollectingObsever())
+
+    subj.on_next(0)
+    subj.on_next(1)
+    subj.on_next(2)
+    subj.on_next(3)
+    subj.on_next(4)
+
+    ok_(uut.join_all(1))
+    eq_(observer.get_events(), (0, 2, 4))
 
     
