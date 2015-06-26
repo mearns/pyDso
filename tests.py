@@ -155,4 +155,36 @@ def test_filter():
     ok_(uut.join_all(1))
     eq_(observer.get_events(), (0, 2, 4))
 
+def test_merge():
+
+    s1 = Subject()
+    s2 = Subject()
+    s3 = Subject()
+    uut = s1.merge(s2, s3)
+    observer = uut.subscribe(CollectingObsever())
+
+    s1.on_next(1)
+    s1.on_next(2)
+    s2.on_next('a')
+    s3.on_next('A')
+    s1.on_next(3)
+    s2.on_next('a')
+    s2.on_next('b')
+    s3.on_next('B')
+    s2.on_next('c')
+    s3.on_next('C')
+    s1.on_next(4)
+    s2.on_next('d')
+    s3.on_next('D')
+    s3.on_next('E')
+    s3.on_next('F')
+    s2.on_next('e')
+
+    ok_(uut.join_all(1))
+    events = observer.get_events()
+    eq_(len(events), 16)
+    for e in (1,2,3,4,'a','b','c','d','e','A','B','C','D','E','F'):
+        ok_(e in events)
+
+
     
