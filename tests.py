@@ -186,5 +186,47 @@ def test_merge():
     for e in (1,2,3,4,'a','b','c','d','e','A','B','C','D','E','F'):
         ok_(e in events)
 
+def test_combine_last():
+
+    s1 = Subject()
+    s2 = Subject()
+    s3 = Subject()
+    uut = s1.combine_last(s2, s3)
+    observer = uut.subscribe(CollectingObsever())
+
+    s1.on_next(0)
+    ok_(uut.join_all(1))
+    eq_(len(observer.get_events()), 0)
+
+    s2.on_next('a')
+    ok_(uut.join_all(1))
+    eq_(len(observer.get_events()), 0)
+
+    s2.on_next('b')
+    ok_(uut.join_all(1))
+    eq_(len(observer.get_events()), 0)
+
+    s3.on_next('A')
+    ok_(uut.join_all(1))
+    eq_(len(observer.get_events()), 1)
+    eq_(observer.get_events()[-1], (0, 'b', 'A'))
+
+    s3.on_next('B')
+    ok_(uut.join_all(1))
+    eq_(len(observer.get_events()), 2)
+    eq_(observer.get_events()[-1], (0, 'b', 'B'))
+
+    s1.on_next(1)
+    s1.on_next(2)
+    s1.on_next(3)
+    ok_(uut.join_all(1))
+    eq_(len(observer.get_events()), 5)
+    eq_(observer.get_events()[-1], (3, 'b', 'B'))
+
+    s2.on_next('c')
+    ok_(uut.join_all(1))
+    eq_(len(observer.get_events()), 6)
+    eq_(observer.get_events()[-1], (3, 'c', 'B'))
+
 
     

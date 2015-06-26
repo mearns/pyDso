@@ -146,6 +146,8 @@ class Observable(object):
     def merge(self, *sources, **kwargs):
         return MergedObservable(self, *sources, **kwargs)
 
+    def combine_last(self, *sources, **kwargs):
+        return CombinedLastObservable(self, *sources, **kwargs)
 
 class DerivedObservable(Observable, Observer):
     def __init__(self, source, propagate_errors=False, propagate_complete=False):
@@ -183,7 +185,6 @@ class DerivedObservable(Observable, Observer):
         if self.propagate_complete:
             self._fire_complete()
         
-
 class MappedObservable(DerivedObservable):
     def __init__(self, func, source, *args, **kwargs):
         self._func = func
@@ -219,7 +220,55 @@ class MergedObservable(DerivedObservable):
                 break
             if not source.join_all(timeleft):
                 return False
-        return super(MergedObservable, self).join_all(timeout)
+        timeleft = None if (timeout is None) else (timeout - (time.time() - tick))
+        return super(MergedObservable, self).join_all(timeleft)
+
+
+class CombinedLastObservable(Observable):
+    def __init__(self, *sources, **kwargs):
+        propagate_errors=kwargs.pop('propagate_errors', False)
+        propagate_complete=kwargs.pop('propagate_complete', False)
+        if kwargs:
+            raise TypeError('Unsupported argument%s: %s' % ('s' if len(kwargs) > 1 else '', ', '.join(k for k in kwargs)))
+
+        for s in sources:
+            if not isinstance(s, Observable):
+                raise TypeError('Can only merge Observables')
+
+        self._last_values = [None for s in sources]
+        self._has_value = [False for s in sources]
+
+        self._sources = sources
+        for i, s in enumerate(sources):
+            s.subscribe(self.PrivateObserver(self, i))
+
+        super(CombinedLastObservable, self).__init__()
+
+    def join_all(self, timeout=None):
+        tick = time.time()
+        for source in self._sources:
+            timeleft = None if (timeout is None) else (timeout - (time.time() - tick))
+            if timeleft <= 0:
+                break
+            if not source.join_all(timeleft):
+                return False
+        timeleft = None if (timeout is None) else (timeout - (time.time() - tick))
+        return super(CombinedLastObservable, self).join_all(timeleft)
+
+    def set_last(self, idx, event):
+        self._last_values[idx] = event
+        self._has_value[idx] = True
+
+        if all(self._has_value):
+            self._fire_next(tuple(self._last_values))
+
+    class PrivateObserver(DefaultObserver):
+        def __init__(self, parent, idx):
+            self._idx = idx
+            self._parent = parent
+
+        def on_next(self, event):
+            self._parent.set_last(self._idx, event)
 
 
 
