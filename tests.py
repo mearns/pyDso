@@ -191,7 +191,7 @@ def test_combine_last():
     s1 = Subject()
     s2 = Subject()
     s3 = Subject()
-    uut = s1.combine_last(s2, s3)
+    uut = s1.combine_last(s2, s3, propagate_errors=True, propagate_complete=True)
     observer = uut.subscribe(CollectingObsever())
 
     s1.on_next(0)
@@ -227,6 +227,39 @@ def test_combine_last():
     ok_(uut.join_all(1))
     eq_(len(observer.get_events()), 6)
     eq_(observer.get_events()[-1], (3, 'c', 'B'))
+
+    eq_(len(observer.get_errors()), 0)
+
+    s1.on_error('e')
+    ok_(uut.join_all(1))
+    eq_(len(observer.get_errors()), 1)
+    eq_(observer.get_errors()[-1], ('e', None, None))
+
+    s1.on_error('f')
+    ok_(uut.join_all(1))
+    eq_(len(observer.get_errors()), 2)
+    eq_(observer.get_errors()[-1], ('f', None, None))
+
+    s3.on_error('g')
+    ok_(uut.join_all(1))
+    s2.on_error('h')
+    ok_(uut.join_all(1))
+    eq_(len(observer.get_errors()), 4)
+    eq_(observer.get_errors()[-2], (None, None, 'g'))
+    eq_(observer.get_errors()[-1], (None, 'h', None))
+
+    ok_(not observer.is_complete())
+    s2.on_complete()
+    ok_(uut.join_all(1))
+    ok_(not observer.is_complete())
+
+    s1.on_complete()
+    ok_(uut.join_all(1))
+    ok_(not observer.is_complete())
+
+    s3.on_complete()
+    ok_(uut.join_all(1))
+    ok_(observer.is_complete())
 
 
     

@@ -226,8 +226,8 @@ class MergedObservable(DerivedObservable):
 
 class CombinedLastObservable(Observable):
     def __init__(self, *sources, **kwargs):
-        propagate_errors=kwargs.pop('propagate_errors', False)
-        propagate_complete=kwargs.pop('propagate_complete', False)
+        self.propagate_errors=kwargs.pop('propagate_errors', False)
+        self.propagate_complete=kwargs.pop('propagate_complete', False)
         if kwargs:
             raise TypeError('Unsupported argument%s: %s' % ('s' if len(kwargs) > 1 else '', ', '.join(k for k in kwargs)))
 
@@ -237,6 +237,8 @@ class CombinedLastObservable(Observable):
 
         self._last_values = [None for s in sources]
         self._has_value = [False for s in sources]
+        self._complete = [False for s in sources]
+        self._count = len(sources)
 
         self._sources = sources
         for i, s in enumerate(sources):
@@ -262,6 +264,16 @@ class CombinedLastObservable(Observable):
         if all(self._has_value):
             self._fire_next(tuple(self._last_values))
 
+    def set_complete(self, idx):
+        if self.propagate_complete:
+            self._complete[idx] = True
+            if all(self._complete):
+                self._fire_complete()
+
+    def set_error(self, idx, event):
+        if self.propagate_errors:
+            self._fire_error(tuple(event if i == idx else None for i in xrange(self._count)))
+            
     class PrivateObserver(DefaultObserver):
         def __init__(self, parent, idx):
             self._idx = idx
@@ -269,6 +281,13 @@ class CombinedLastObservable(Observable):
 
         def on_next(self, event):
             self._parent.set_last(self._idx, event)
+
+        def on_error(self, event):
+            self._parent.set_error(self._idx, event)
+
+        def on_complete(self):
+            self._parent.set_complete(self._idx)
+            
 
 
 
