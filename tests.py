@@ -24,4 +24,21 @@ def test_subject():
     uut.join(1)
     eq_(len(observer.get_events()), 5)
     eq_(len(observer.get_errors()), 0)
+
+    uut.on_error('e')
+    uut.on_error('f')
+    uut.on_next(6)
+    uut.on_error('g')
+    uut.on_next(7)
+    uut.join(1)
+    eq_(len(observer.get_events()), 7)
+    eq_(len(observer.get_errors()), 3)
+
+    eq_(observer.get_events(), (1,2,3,4,5,6,7))
+    eq_(observer.get_errors(), ('e', 'f', 'g'))
+    ok_(not observer.is_complete())
+
+    uut.on_complete()
+    uut.join(1)
+    ok_(observer.is_complete())
     

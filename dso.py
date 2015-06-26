@@ -93,7 +93,7 @@ class Observable(object):
         tick = time.time()
         for thread in self._threads:
             tock = time.time()
-            timeleft = timeout - (tock - tick)
+            timeleft = None if (timeout is None) else (timeout - (tock - tick))
             thread.join(timeleft)
             if timeleft <= 0:
                 break
